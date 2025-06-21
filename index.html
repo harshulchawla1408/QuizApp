@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Quiz Master</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="light-theme">
+    <div class="theme-toggle" id="darkModeToggle">
+        <i class="fas fa-moon"></i>
+    </div>
+    
+    <div class="quiz-container">
+        <header>
+            <h1 class="logo">QuizMaster Pro</h1>
+            <div class="quiz-header">
+                <div class="quiz-info">
+                    <div class="progress">
+                        <span>Progress: </span>
+                        <span id="progress">0/50</span>
+                    </div>
+                    <div class="timer" id="timer">
+                        <i class="fas fa-clock"></i>
+                        <span>15:00</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="user-info" id="userInfo">
+            <input type="text" id="userName" placeholder="Enter your name" maxlength="30">
+            <button id="startQuiz" class="btn">Start Quiz</button>
+        </div>
+
+        <div class="quiz-content hidden" id="quizContent">
+            <div class="categories" id="categories">
+                <!-- Categories will be dynamically inserted here -->
+            </div>
+            <button id="submit-btn" class="btn submit-btn">Submit Quiz</button>
+        </div>
+
+        <div id="result" class="result hidden">
+            <div class="result-content">
+                <h2>Quiz Results</h2>
+                <div class="result-summary">
+                    <p id="userGreeting">Hello, <span id="userNameDisplay">User</span>!</p>
+                    <div class="score-container">
+                        <div class="score-circle">
+                            <svg class="progress-ring" width="200" height="200">
+                                <circle class="progress-ring-circle" stroke="#4e73df" stroke-width="10" fill="transparent" r="90" cx="100" cy="100"/>
+                            </svg>
+                            <div class="score-text">
+                                <span id="score">0</span>
+                                <span class="total">/50</span>
+                            </div>
+                        </div>
+                        <div class="score-details">
+                            <p id="percentage">0%</p>
+                            <p id="feedback">Keep practicing!</p>
+                        </div>
+                    </div>
+                    <div class="category-scores" id="categoryScores"></div>
+                    <div class="result-actions">
+                        <button id="retry-btn" class="btn">
+                            <i class="fas fa-redo"></i> Try Again
+                        </button>
+                        <button id="review-btn" class="btn btn-outline">
+                            <i class="fas fa-list-check"></i> Review Answers
+                        </button>
+                        <button id="tryAgainBtn" class="btn btn-outline">
+                            <i class="fas fa-rotate"></i> Restart Quiz
+                        </button>
+                        <button id="reviewIncorrectBtn" class="btn btn-outline">
+                            <i class="fas fa-eye-slash"></i> Review Incorrect Only
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="answer-review hidden" id="answerReview">
+                <h3>Answer Review</h3>
+                <div class="review-container" id="reviewContainer"></div>
+                <button class="btn back-to-results">
+                    <i class="fas fa-arrow-left"></i> Back to Results
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <audio id="correct-sound" src="https://assets.mixkit.co/sfx/preview/mixkit-correct-answer-tone-2870.mp3"></audio>
+    <audio id="wrong-sound" src="https://assets.mixkit.co/sfx/preview/mixkit-wrong-answer-fail-notification-946.mp3"></audio>
+    <audio id="complete-sound" src="https://assets.mixkit.co/sfx/preview/mixkit-achievement-bell-600.mp3"></audio>
+
+    <script src="script.js"></script>
+</body>
+</html>
