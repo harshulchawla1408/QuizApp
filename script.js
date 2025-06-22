@@ -124,7 +124,7 @@ const quizData = {
       }
     ],
   
-    stacksqueues: [
+    stacks_queues: [
       {
         question: "What is the time complexity of push() in a stack?",
         options: ["O(n)", "O(log n)", "O(1)", "O(n^2)"],
@@ -243,63 +243,149 @@ const quizData = {
       }
     ]
   };
-// ✅ Enhanced DSA-Based Quiz App JavaScript
-
 // DOM Elements
 const categoriesContainer = document.getElementById('categories');
 const submitBtn = document.getElementById('submit-btn');
-const startQuizBtn = document.getElementById('startQuiz');
-const userNameInput = document.getElementById('userName');
-const userNameDisplay = document.getElementById('userNameDisplay');
-const userInfoSection = document.getElementById('userInfo');
+const topicsTabs = document.getElementById('topicsTabs');
+const startBtn = document.getElementById('startQuiz');
+const userInfo = document.getElementById('userInfo');
 const quizContent = document.getElementById('quizContent');
 const resultSection = document.getElementById('result');
-const progressDisplay = document.getElementById('progress');
 const timerDisplay = document.querySelector('.timer span');
+const progressDisplay = document.getElementById('progress');
 const darkModeToggle = document.getElementById('darkModeToggle');
+const userNameInput = document.getElementById('userName');
+const userNameDisplay = document.getElementById('userNameDisplay');
+const reviewBtn = document.getElementById('review-btn');
+const reviewContainer = document.getElementById('reviewContainer');
+const answerReview = document.getElementById('answerReview');
+const backToResultsBtn = document.querySelector('.back-to-results');
+const tryAgainBtn = document.getElementById('tryAgainBtn');
+const reviewIncorrectBtn = document.getElementById('reviewIncorrectBtn');
+const categoryScores = document.getElementById('categoryScores');
+const percentageDisplay = document.getElementById('percentage');
+const feedbackDisplay = document.getElementById('feedback');
+const scoreDisplay = document.getElementById('score');
+const loadingSpinner = document.getElementById('loadingSpinner');
 
 // Quiz State
 let userAnswers = {};
-let timeLeft = 900; // 15 minutes
+let currentUser = '';
+let timeLeft = 15 * 60; // 15 minutes
 let timer;
 const QUIZ_STATE_KEY = 'quizAppState';
 
-// Load saved state
-document.addEventListener('DOMContentLoaded', () => {
-  const savedState = JSON.parse(localStorage.getItem(QUIZ_STATE_KEY));
-  if (savedState) {
-    userAnswers = savedState.userAnswers || {};
-    timeLeft = savedState.timeLeft || 900;
+// Format category name for display
+function formatCategoryName(category) {
+  return category.charAt(0).toUpperCase() + category.slice(1).replace(/([A-Z])/g, ' $1').replace(/_/g, ' & ');
+}
+
+// Initialize the application
+function initApp() {
+  // Set up event listeners
+  if (startBtn) startBtn.addEventListener('click', startQuiz);
+  if (submitBtn) submitBtn.addEventListener('click', submitAnswers);
+  if (darkModeToggle) {
+    darkModeToggle.addEventListener('click', toggleDarkMode);
   }
+  if (reviewBtn) reviewBtn.addEventListener('click', () => showReview(false));
+  if (reviewIncorrectBtn) reviewIncorrectBtn.addEventListener('click', () => showReview(true));
+  if (backToResultsBtn) backToResultsBtn.addEventListener('click', hideReview);
+  if (tryAgainBtn) tryAgainBtn.addEventListener('click', restartQuiz);
+
+  // Initialize dark mode
+  if (localStorage.getItem('theme') === 'dark') {
+    document.body.setAttribute('data-theme', 'dark');
+  }
+
+  // Load saved state
+  loadState();
+
+  // Initialize the quiz
   initializeQuiz();
-  updateProgress();
-});
+}
+
+// Load saved state
+function loadState() {
+  // Only restore state if the same user returns in the same session
+  // Otherwise, always start fresh
+  userAnswers = {};
+  currentUser = '';
+  timeLeft = 15 * 60;
+  // Do not auto-start quiz or restore answers
+}
+
+// Start the app when DOM is loaded
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
+}
+
+// New: Loading spinner and toast notification helpers
+function showSpinner() { if (loadingSpinner) loadingSpinner.classList.remove('hidden'); }
+function hideSpinner() { if (loadingSpinner) loadingSpinner.classList.add('hidden'); }
+
+function showToast(msg, type = 'info') {
+  let toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.setAttribute('role', 'alert');
+  toast.textContent = msg;
+  document.body.appendChild(toast);
+  setTimeout(() => { toast.classList.add('show'); }, 10);
+  setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 500); }, 2500);
+}
+
+// Audio feedback
+const correctSound = document.getElementById('correct-sound');
+const wrongSound = document.getElementById('wrong-sound');
+const completeSound = document.getElementById('complete-sound');
 
 // Start quiz
-startQuizBtn.addEventListener('click', () => {
+function startQuiz() {
   const name = userNameInput.value.trim();
   if (!name) return;
-  userNameDisplay.textContent = name;
-  userInfoSection.classList.add('hidden');
-  quizContent.classList.remove('hidden');
+
+  // Always reset state for a new person
+  userAnswers = {};
+  timeLeft = 15 * 60;
+  currentUser = name;
+  if (userNameDisplay) userNameDisplay.textContent = name;
+  if (userInfo) userInfo.classList.add('hidden');
+  if (quizContent) quizContent.classList.remove('hidden');
+  if (resultSection) resultSection.classList.add('hidden');
+  if (answerReview) answerReview.classList.add('hidden');
+
+  // Initialize the first tab as active if none is active
+  if (!document.querySelector('.topic-tab.active')) {
+    const firstTab = document.querySelector('.topic-tab');
+    if (firstTab) firstTab.click();
+  }
+
+  initializeQuiz();
+  updateProgress();
   startTimer();
-});
+  saveState();
+  showToast('Quiz started! Good luck!', 'success');
+}
 
 // Save state
 function saveState() {
-  const state = { userAnswers, timeLeft };
+  const state = { userAnswers, timeLeft, quizStarted: true, userName: currentUser };
   localStorage.setItem(QUIZ_STATE_KEY, JSON.stringify(state));
 }
 
 // Timer
 function startTimer() {
   updateTimerDisplay();
+  if (timer) clearInterval(timer);
   timer = setInterval(() => {
     timeLeft--;
     updateTimerDisplay();
     saveState();
     if (timeLeft <= 0) {
       clearInterval(timer);
+      showToast('Time is up! Submitting...', 'error');
       submitAnswers();
     }
   }, 1000);
@@ -313,140 +399,255 @@ function updateTimerDisplay() {
 
 // Initialize quiz
 function initializeQuiz() {
+  // Create topic tabs and category content
+  topicsTabs.innerHTML = '';
   categoriesContainer.innerHTML = '';
-  Object.entries(quizData).forEach(([category, questions]) => {
-    const section = document.createElement('div');
-    section.className = 'category';
-    section.innerHTML = `
-      <div class="category-header"><h3>${category}</h3></div>
-      <div class="category-content"></div>
+
+  Object.entries(quizData).forEach(([category, questions], index) => {
+    // Create tab
+    const tab = document.createElement('div');
+    tab.className = `topic-tab ${index === 0 ? 'active' : ''}`;
+    tab.textContent = formatCategoryName(category);
+    tab.dataset.category = category;
+    tab.setAttribute('role', 'tab');
+    tab.setAttribute('tabindex', index === 0 ? '0' : '-1');
+    tab.setAttribute('aria-selected', index === 0 ? 'true' : 'false');
+
+    // Add click event to switch between tabs
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.topic-tab').forEach((t, idx) => {
+        t.classList.remove('active');
+        t.setAttribute('aria-selected', 'false');
+        t.setAttribute('tabindex', '-1');
+      });
+      tab.classList.add('active');
+      tab.setAttribute('aria-selected', 'true');
+      tab.setAttribute('tabindex', '0');
+      document.querySelectorAll('.category').forEach(cat => cat.classList.remove('active'));
+      const categoryEl = document.getElementById(category);
+      if (categoryEl) {
+        setTimeout(() => {
+          categoryEl.classList.add('active');
+          categoryEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 10);
+      }
+    });
+    tab.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+        const tabs = Array.from(document.querySelectorAll('.topic-tab'));
+        let idx = tabs.indexOf(document.activeElement);
+        if (e.key === 'ArrowRight') idx = (idx + 1) % tabs.length;
+        else idx = (idx - 1 + tabs.length) % tabs.length;
+        tabs[idx].focus();
+        tabs[idx].click();
+      }
+    });
+
+    topicsTabs.appendChild(tab);
+
+    // Create category content
+    const categoryHtml = `
+      <div class="category ${index === 0 ? 'active' : ''}" id="${category}">
+        <div class="category-content">
+          ${questions.map((q, qIndex) => `
+            <div class="question-container">
+              <div class="question">
+                <span class="question-number">${qIndex + 1}.</span>
+                <span class="question-text">${q.question}</span>
+                ${q.hint ? `
+                <button class="show-hint" type="button" onclick="this.nextElementSibling.style.display='block';this.style.display='none';">
+                  <i class="fas fa-lightbulb"></i> Show Hint
+                </button>
+                <div class="hint" style="display:none;">
+                  <i class="fas fa-lightbulb"></i>
+                  <span class="hint-text">${q.hint}</span>
+                </div>` : ''}
+              </div>
+              <div class="options">
+                ${q.options.map((option, oIndex) => `
+                  <label class="option">
+                    <input type="radio" 
+                           name="${category}_${qIndex}" 
+                           value="${oIndex}" 
+                           ${userAnswers[`${category}_${qIndex}`] === oIndex ? 'checked' : ''}>
+                    <span class="option-text">${option}</span>
+                  </label>
+                `).join('')}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
     `;
-
-    const content = section.querySelector('.category-content');
-
-    questions.forEach((q, i) => {
-      const qid = `${category}-${i}`;
-      const qDiv = document.createElement('div');
-      qDiv.className = 'question';
-      qDiv.innerHTML = `
-        <div>${i + 1}. ${q.question}</div>
-        ${q.options.map((opt, idx) => `
-          <label><input type="radio" name="${qid}" value="${idx}" ${userAnswers[qid] == idx ? 'checked' : ''}> ${opt}</label>
-        `).join('')}
-        <div class="explanation" style="display:none; font-style:italic; color:gray;">Explanation: ${q.explanation}</div>
-      `;
-      content.appendChild(qDiv);
-    });
-
-    section.querySelector('.category-header').addEventListener('click', () => {
-      section.classList.toggle('active');
-    });
-
-    categoriesContainer.appendChild(section);
+    categoriesContainer.insertAdjacentHTML('beforeend', categoryHtml);
   });
+
+  updateProgress();
+  updateTimerDisplay();
 }
 
 // Capture answer
 categoriesContainer.addEventListener('change', e => {
   const { name, value } = e.target;
   if (name && value !== undefined) {
+    // Removed: feedback/toast on option selection
     userAnswers[name] = parseInt(value);
     updateProgress();
     saveState();
   }
 });
 
-// Update progress
+// Visual progress bar (updateProgress)
 function updateProgress() {
   const total = Object.values(quizData).reduce((sum, q) => sum + q.length, 0);
   const answered = Object.keys(userAnswers).length;
   progressDisplay.textContent = `${answered}/${total}`;
+  // New: update visual progress bar if exists
+  const progressBar = document.getElementById('progressBar');
+  if (progressBar) {
+    let percent = (answered / total) * 100;
+    progressBar.style.setProperty('--progress', percent + '%');
+  }
 }
 
 // Submit quiz
-submitBtn.addEventListener('click', submitAnswers);
-
-// Try Again Button (Optional: Add this button to your HTML with id 'tryAgainBtn')
-const tryAgainBtn = document.getElementById('tryAgainBtn');
-if (tryAgainBtn) {
-  tryAgainBtn.addEventListener('click', () => {
-    userAnswers = {};
-    timeLeft = 900;
-    resultSection.classList.add('hidden');
-    quizContent.classList.remove('hidden');
-    initializeQuiz();
-    updateProgress();
-    startTimer();
-  });
-}
-
-// Review Incorrect Button (Optional: Add this button to your HTML with id 'reviewIncorrectBtn')
-const reviewIncorrectBtn = document.getElementById('reviewIncorrectBtn');
-if (reviewIncorrectBtn) {
-  reviewIncorrectBtn.addEventListener('click', () => {
-    resultSection.classList.add('hidden');
-    quizContent.classList.remove('hidden');
-    initializeQuiz();
-    Object.entries(quizData).forEach(([category, questions]) => {
-      questions.forEach((q, i) => {
-        const qid = `${category}-${i}`;
-        if (userAnswers[qid] === q.correctAnswer) {
-          const questionEl = document.querySelector(`[name='${qid}']`).closest('.question');
-          if (questionEl) questionEl.style.display = 'none';
-        }
-      });
-    });
-    updateProgress();
-  });
-}
-
 function submitAnswers() {
   clearInterval(timer);
+
   let correct = 0, total = 0;
   const categoryBreakdown = {};
+  const categoryScoreHtml = [];
 
   Object.entries(quizData).forEach(([category, questions]) => {
     let catCorrect = 0;
     questions.forEach((q, i) => {
-      const qid = `${category}-${i}`;
+      const qid = `${category}_${i}`;
       total++;
-      const qElem = document.querySelector(`input[name='${qid}']:checked`);
-      const correctElem = document.querySelector(`[name='${qid}'][value='${q.correctAnswer}']`);
       if (userAnswers[qid] === q.correctAnswer) {
         correct++;
         catCorrect++;
       }
-      // Show explanation
-      const explanation = correctElem?.closest('.question')?.querySelector('.explanation');
-      if (explanation) explanation.style.display = 'block';
     });
     categoryBreakdown[category] = { correct: catCorrect, total: questions.length };
+    categoryScoreHtml.push(`
+      <div class="category-score">
+        <h4>${formatCategoryName(category)}</h4>
+        <p>${catCorrect}/${questions.length}</p>
+      </div>
+    `);
   });
 
-  let breakdownHTML = '<ul>';
-  Object.entries(categoryBreakdown).forEach(([cat, { correct, total }]) => {
-    breakdownHTML += `<li><strong>${cat}:</strong> ${correct}/${total}</li>`;
-  });
-  breakdownHTML += '</ul>';
+  // Score circle
+  if (scoreDisplay) scoreDisplay.textContent = correct;
+  if (percentageDisplay) percentageDisplay.textContent = `${Math.round((correct / total) * 100)}%`;
+  if (feedbackDisplay) {
+    let feedback = "Keep practicing!";
+    const percent = (correct / total) * 100;
+    if (percent === 100) feedback = "Outstanding!";
+    else if (percent >= 80) feedback = "Great job!";
+    else if (percent >= 60) feedback = "Good effort!";
+    feedbackDisplay.textContent = feedback;
+  }
+  if (categoryScores) categoryScores.innerHTML = categoryScoreHtml.join('');
 
-  resultSection.innerHTML = `
-    <h2>Your Score: ${correct}/${total}</h2>
-    <h3>Category-wise Breakdown:</h3>
-    ${breakdownHTML}
-  `;
+  // Animate score circle
+  const circle = document.querySelector('.progress-ring-circle');
+  if (circle) {
+    const radius = circle.r.baseVal.value;
+    const circumference = 2 * Math.PI * radius;
+    circle.style.strokeDasharray = `${circumference} ${circumference}`;
+    const percent = correct / total;
+    circle.style.strokeDashoffset = circumference - percent * circumference;
+  }
 
-  resultSection.classList.remove('hidden');
-  quizContent.classList.add('hidden');
+  // Play audio feedback and show toast on submit
+  if (completeSound) completeSound.play();
+  showToast('Quiz submitted!', 'success');
+
+  // Show result
+  if (resultSection) resultSection.classList.remove('hidden');
+  if (quizContent) quizContent.classList.add('hidden');
+  if (answerReview) answerReview.classList.add('hidden');
   localStorage.removeItem(QUIZ_STATE_KEY);
+
+  // Hide review buttons after submission
+  if (reviewBtn) reviewBtn.style.display = 'none';
+  if (reviewIncorrectBtn) reviewIncorrectBtn.style.display = 'none';
+}
+
+// Review answers (fix: always show review section and scroll to it)
+function showReview(incorrectOnly = false) {
+  if (!reviewContainer) return;
+  reviewContainer.innerHTML = '';
+  let reviewCount = 0;
+  let totalCount = 0;
+  Object.entries(quizData).forEach(([category, questions]) => {
+    questions.forEach((q, i) => {
+      totalCount++;
+      const qid = `${category}_${i}`;
+      const userAns = userAnswers[qid];
+      const isCorrect = userAns === q.correctAnswer;
+      if (incorrectOnly && isCorrect) return;
+      reviewCount++;
+      reviewContainer.insertAdjacentHTML('beforeend', `
+        <div class="review-item ${isCorrect ? 'correct' : 'incorrect'}">
+          <div class="review-question">${q.question}</div>
+          <div class="review-answer ${isCorrect ? 'correct' : 'incorrect'}">
+            Your answer: ${userAns !== undefined ? q.options[userAns] : '<em>Not answered</em>'}
+          </div>
+          <div class="review-answer correct">
+            Correct answer: ${q.options[q.correctAnswer]}
+          </div>
+          <div class="review-explanation">${q.explanation || ''}</div>
+        </div>
+      `);
+    });
+  });
+  // Show review progress if present
+  const reviewProgress = document.getElementById('reviewProgress');
+  if (reviewProgress) {
+    reviewProgress.innerHTML = `<span id="reviewCurrent">${reviewCount}</span>/<span id="reviewTotal">${incorrectOnly ? reviewCount : totalCount}</span>`;
+    reviewProgress.style.display = 'block';
+  }
+  if (answerReview) {
+    answerReview.classList.remove('hidden');
+    // Optionally scroll to review section for better UX
+    setTimeout(() => {
+      answerReview.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  }
+  if (resultSection) resultSection.classList.add('hidden');
+}
+
+function hideReview() {
+  if (answerReview) answerReview.classList.add('hidden');
+  if (resultSection) resultSection.classList.remove('hidden');
+}
+
+// Restart quiz
+function restartQuiz() {
+  userAnswers = {};
+  timeLeft = 15 * 60;
+  if (resultSection) resultSection.classList.add('hidden');
+  if (quizContent) quizContent.classList.remove('hidden');
+  initializeQuiz();
+  updateProgress();
+  startTimer();
 }
 
 // Dark Mode Toggle
-if (darkModeToggle) {
-  darkModeToggle.addEventListener('click', () => {
-    document.body.classList.toggle('dark');
-    localStorage.setItem('theme', document.body.classList.contains('dark') ? 'dark' : 'light');
-  });
-  if (localStorage.getItem('theme') === 'dark') {
-    document.body.classList.add('dark');
+function toggleDarkMode() {
+  const isDark = document.body.getAttribute('data-theme') === 'dark';
+  if (isDark) {
+    document.body.removeAttribute('data-theme');
+    localStorage.setItem('theme', 'light');
+  } else {
+    document.body.setAttribute('data-theme', 'dark');
+    localStorage.setItem('theme', 'dark');
   }
 }
+
+// Clear quiz state when user leaves or reloads the site
+window.addEventListener('beforeunload', () => {
+  localStorage.removeItem(QUIZ_STATE_KEY);
+});
