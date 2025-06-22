@@ -1,12 +1,10 @@
 # Advanced Interactive Quiz Application
 
-A responsive, feature-rich quiz application built with vanilla JavaScript, HTML, and CSS. Test your knowledge across multiple categories with this elegant and user-friendly quiz app.
-
-![Quiz App Screenshot](screenshot.png)
+A responsive, feature-rich quiz application built with vanilla JavaScript, HTML, and CSS. Test your knowledge across multiple topics of DSA with this elegant and user-friendly quiz app.
 
 ## Features
 
-- **Multiple Categories**: 5 categories with 10 questions each (HTML, CSS, JavaScript, General Knowledge, Logical Reasoning)
+- **Multiple Categories**: 6 categories with 5 questions each 
 - **Interactive UI**: Clean, modern interface with smooth animations
 - **Dark/Light Mode**: Toggle between themes for comfortable viewing
 - **Timer**: 15-minute countdown with auto-submit
@@ -59,7 +57,6 @@ A responsive, feature-rich quiz application built with vanilla JavaScript, HTML,
 3. **Submitting the Quiz**
    - Click "Submit Quiz" when you're done
    - Review your score and category breakdown
-   - Click "Review Answers" to see detailed explanations
 
 4. **Try Again**
    - Click "Try Again" to restart the quiz with new questions
